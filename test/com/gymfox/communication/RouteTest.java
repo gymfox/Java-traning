@@ -1,11 +1,11 @@
 package com.gymfox.communication;
 
 import org.junit.Test;
-import junit.framework.Assert;
+import org.junit.Assert;
 
 public class RouteTest {
     @Test
-    public void creationRouteTest() throws Route.InvalidGatewayException {
+    public void creationRouteTest() throws Exceptions.InvalidGatewayException {
         Route route1 = new Route(new Network(new IPv4Address("192.168.0.0")),"en10",10, new IPv4Address("192.168.0.1"));
         Route route2 = new Route(new Network(new IPv4Address("135.56.23.19")),  "en10", 10);
         Route route3 = new Route(new Network(new IPv4Address("10.123.0.0"), 20), "en1", 10);
@@ -22,8 +22,8 @@ public class RouteTest {
                 route5.toString());
     }
 
-    @Test ( expected = Route.InvalidGatewayException.class )
-    public void invalidGatewayExceptionTest() throws Route.InvalidGatewayException {
+    @Test ( expected = Exceptions.InvalidGatewayException.class )
+    public void invalidGatewayExceptionTest() throws Exceptions.InvalidGatewayException {
         Route route1 = new Route(new Network(new IPv4Address("192.168.0.0")), "en10", 10, new IPv4Address
                 ("192.168.0.0"));
     }

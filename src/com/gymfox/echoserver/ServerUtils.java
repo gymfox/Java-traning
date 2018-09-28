@@ -20,7 +20,7 @@ public final class ServerUtils {
 
     public static void validate(int port) throws InvalidPortException {
         if ( port < MIN_PERMISSION_PORT || port > MAX_PERMISSION_PORT ) {
-            throw new InvalidPortException(String.format("%d is invalid port. Value beetwen %d and %d is expected.",
+            throw new InvalidPortException(String.format("%d is invalid port. Value between %d and %d is expected.",
                     port, MIN_PERMISSION_PORT, MAX_PERMISSION_PORT));
         }
     }

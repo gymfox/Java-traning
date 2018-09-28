@@ -2,14 +2,22 @@ package com.gymfox.communication;
 
 //Поле испытаний.
 
-public class main {
-    public static void main(String[] args) throws Route.InvalidGatewayException {
-        Network net1 = new Network(new IPv4Address("192.168.0.1"), 16);
-        Network net2 = new Network(new IPv4Address("154.45.13.5"), 24);
+import java.util.TreeSet;
 
-        System.out.println(net1.toString());
-        System.out.println(net2.toString());
-    }
+public class main {
+     public static void main(String[] args) {
+         TreeSet<Route> routes = new TreeSet<Route>(new Router.RouteComparator()) {{
+             add(new Route(new Network(new IPv4Address("10.0.0.0"), 8),"en1", 10, new IPv4Address("10.123.0.1")));
+             add(new Route(new Network(new IPv4Address("192.168.5.0"), 25), "en0", 10, new IPv4Address("10.123.0.0")));
+             add(new Route(new Network(new IPv4Address("192.168.5.0"), 24), "en0", 5, new IPv4Address("192.168.2.1")));
+             add(new Route(new Network(new IPv4Address("192.168.1.128"), 25),  "en0", 3));
+             add(new Route(new Network(new IPv4Address("10.123.0.0"), 20),  "en1", 10));
+         }};
+
+         Router router = new Router(routes);
+         System.out.println(router.getRouteForAddress(new IPv4Address("192.168.5.178")).get());
+
+     }
 }
 /*
 для перевода IP из long -> String

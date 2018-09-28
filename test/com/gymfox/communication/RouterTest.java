@@ -1,7 +1,7 @@
 package com.gymfox.communication;
 
-import junit.framework.Assert;
 import org.junit.Test;
+import org.junit.Assert;
 
 import java.util.TreeSet;
 
