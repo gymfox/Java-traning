@@ -1,60 +1,72 @@
 package com.gymfox.httpserver;
 
-import java.io.*;
-import java.net.HttpURLConnection;
+import com.gymfox.httpserver.HTTPResponse.ResponseBuilder;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.gymfox.httpserver.HTTPCreateRequest.*;
-import static com.gymfox.httpserver.HTTPCreateResponse.createResponse;
-import static com.gymfox.httpserver.HTTPCreateResponse.getResponse;
-import static com.gymfox.httpserver.HTTPServerUtils.*;
+import static com.gymfox.httpserver.HTTPRequestHandler.CodeResponse.BAD_REQUEST_CODE;
+import static com.gymfox.httpserver.HTTPServerExceptions.FileIsEmptyException;
+import static com.gymfox.httpserver.HTTPServerExceptions.HttpServerIsRunningException;
+import static com.gymfox.httpserver.HTTPServerExceptions.InvalidArgumentsCountException;
+import static com.gymfox.httpserver.HTTPServerExceptions.MalformedRequestException;
+import static com.gymfox.httpserver.HTTPServerUtils.CONFIG_FILE;
+import static com.gymfox.httpserver.HTTPServerUtils.closeSocket;
+import static com.gymfox.httpserver.HTTPServerUtils.startServer;
+import static com.gymfox.httpserver.HTTPServerUtils.validatePath;
 
 public class HTTPServer {
-    private final ExecutorService pool = Executors.newFixedThreadPool(1);
+    private static final int ARGUMENTS_COUNT = 1;
+    private static final int EMPTY_LINE = 0;
+    private static final HTTPResponse badResponse = new ResponseBuilder().addStatusCode(BAD_REQUEST_CODE).build();
+    private final ExecutorService threadExecutor;
+    private final HTTPServerConf httpServerConf;
+    private final HTTPTransformer httpTransformer;
+    private final HTTPRequestHandler requestHandler;
     private volatile ServerSocket serverSocket;
     private volatile boolean isRunning;
-    static HTTPServerConf httpServerConf;
 
-    public HTTPServer() throws IOException, InvalidPortException {
+    public HTTPServer() throws IOException {
         this(CONFIG_FILE);
     }
 
-    public HTTPServer(File pathToConfigFile) throws IOException, InvalidPortException {
-        validatePath(pathToConfigFile);
-        httpServerConf = ConfigSerializer.getConfig(pathToConfigFile);
+    public HTTPServer(File pathToConfigFile) throws IOException {
+        httpServerConf = ConfigSerializer.getHTTPConfig(pathToConfigFile);
+
+        threadExecutor = Executors.newFixedThreadPool(httpServerConf.getPoolSize());
+        httpTransformer = new HTTPTransformer(httpServerConf);
+        requestHandler = new HTTPRequestHandler(httpServerConf);
     }
 
-    public void start() throws IOException, HttpServerIsRunningException {
+    public void start() throws IOException {
         runHttpServer();
 
         while (isRunning()) {
             Socket socket = serverSocket.accept();
-            pool.execute(() -> {
+            threadExecutor.execute(() -> {
                 try (PrintWriter sout = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-                    BufferedReader sin = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                     BufferedReader sin = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
                     System.out.println("Client has been connected");
 
-                    while (isRunning()) {
-                        processingRequest(sout, sin);
-
-                        HttpURLConnection connection = (HttpURLConnection) new URL(getURL()).openConnection();
-
-                        connection.setRequestMethod(getRequestMethod());
-
-                        if ( connection.getResponseCode() == HttpURLConnection.HTTP_OK ) {
-                            createResponse(connection);
+                    if (isRunning()) {
+                        try {
+                            HTTPRequest request = httpTransformer.readHTTPRequest(sin);
+                            HTTPResponse response = requestHandler.handleRequest(request);
+                            httpTransformer.writeHTTPResponse(response, sout);
+                        } catch (MalformedRequestException e) {
+                            httpTransformer.writeHTTPResponse(badResponse, sout);
+                            e.printStackTrace();
                         }
-
-                        sout.println(getResponse());
-                        sout.flush();
-
-                        connection.disconnect();
                     }
-                } catch (IOException | InvalidHttpVersionException | NotAllowedMethodException | InvalidPartsHTTPVersionException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
                     closeSocket(socket);
@@ -63,7 +75,7 @@ public class HTTPServer {
         }
     }
 
-    private void runHttpServer() throws IOException, HttpServerIsRunningException {
+    private void runHttpServer() throws IOException {
         if ( isRunning() ) {
             throw new HttpServerIsRunningException("Server is already running");
         }
@@ -78,21 +90,13 @@ public class HTTPServer {
         if (isRunning()) {
             isRunning = false;
             serverSocket.close();
-            pool.shutdown();
+            threadExecutor.shutdown();
 
             System.out.println("HTTP Server has been closed");
         }
     }
 
-    public static String getHost() {
-        return httpServerConf.getRootDirectory().getName();
-    }
-
-    public String getURL() {
-        return "http://" + getHost() + getRequestURI() + "\n";
-    }
-
-    public boolean isRunning() {
+    private boolean isRunning() {
         return isRunning;
     }
 
@@ -100,18 +104,39 @@ public class HTTPServer {
         return httpServerConf;
     }
 
-    @Override
-    public String toString() {
-        return String.valueOf(getHttpServerConf()) +
-                "URL:\n\t" +
-                getURL() +
-                getRequest() +
-                getResponse();
+    public String getHTTPServerConfAsString() {
+        return httpServerConf.toString();
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException,
-            HTTPServerUtils.InvalidPortException, FileIsEmptyException {
-        File configFile = validateIsNotEmpty(new File(args[0]));
+    @Override
+    public String toString() {
+        return getHTTPServerConfAsString() + "\n";
+    }
+
+    static File checkArguments(File inputArgumentFile) throws IOException {
+        validatePath(inputArgumentFile);
+        validateIsNotEmpty(inputArgumentFile);
+
+        return inputArgumentFile;
+    }
+
+    static void validateIsNotEmpty(File configFile) throws FileIsEmptyException {
+        if ( configFile.length() == EMPTY_LINE ) {
+            throw new FileIsEmptyException("File doesn't have any parameters.");
+        }
+    }
+
+    static void validateArgumentsCount(String[] args) throws InvalidArgumentsCountException {
+        if ( args.length != ARGUMENTS_COUNT ) {
+            throw new InvalidArgumentsCountException(String.format("Invalid arguments counts. Expected %d, but found " +
+                    "%d.", ARGUMENTS_COUNT, args.length));
+        }
+    }
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+        validateArgumentsCount(args);
+
+        File configFile = checkArguments(new File(args[0]));
 
         HTTPServer httpServer = new HTTPServer(configFile);
 

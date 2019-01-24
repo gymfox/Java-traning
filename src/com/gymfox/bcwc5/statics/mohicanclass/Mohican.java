@@ -10,6 +10,7 @@ public class Mohican {
 
         prev = lastMohican;
         lastMohican = this;
+
         System.out.println("Last Mohican was borned: " + getLastMohican() + "; prev is: " + getPrev());
     }
 
@@ -40,11 +41,26 @@ public class Mohican {
         return lastMohican;
     }
 
-    public Mohican getPrev() {
+    public Mohican getPrev() throws NoLastMohicanException {
+        validate();
+
         return prev;
     }
 
     public String getName() {
         return name;
+    }
+}
+
+class Main {
+    public static void main(String[] args) throws NoLastMohicanException {
+        Mohican m1 = new Mohican("Apache1");
+        Mohican m2 = new Mohican("Apache2");
+        Mohican m3 = new Mohican("Apache3");
+        Mohican m4 = new Mohican("Apache4");
+
+        m3.deleteLastMohican();
+
+        System.out.println(Mohican.getLastMohican());
     }
 }

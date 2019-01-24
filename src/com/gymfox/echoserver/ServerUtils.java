@@ -36,7 +36,7 @@ public final class ServerUtils {
 
         ExecutorService t = Executors.newFixedThreadPool(1);
         t.execute(r);
-        Thread.sleep(10000);
+        Thread.sleep(1000);
     }
 
     public static void closeSocket(Socket clientSocket) {
