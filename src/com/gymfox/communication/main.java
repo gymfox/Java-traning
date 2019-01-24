@@ -15,7 +15,7 @@ public class main {
          }};
 
          Router router = new Router(routes);
-         System.out.println(router.getRouteForAddress(new IPv4Address("192.168.5.178")).get());
+         System.out.println(router.getRouteForAddress(new IPv4Address("192.168.5.178")));
 
      }
 }

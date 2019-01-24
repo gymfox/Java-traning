@@ -102,6 +102,5 @@ class StartEchoServer {
         startConnect(server);
 
         server.stop();
-        System.exit(0);
     }
 }

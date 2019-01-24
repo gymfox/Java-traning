@@ -6,39 +6,82 @@ import java.io.File;
 import java.io.IOException;
 
 import static com.gymfox.httpserver.HTTPServerUtils.validatePath;
-import static com.gymfox.httpserver.HTTPServerUtils.validatePort;
+import static com.gymfox.httpserver.HTTPServerExceptions.InvalidPortException;
 
-public class HTTPServerConf {
-    private final IPv4Address configAddress;
+public class HTTPServerConf implements HTTPTransformerConfig {
+    private static final int MIN_SYSTEM_PORT_VALUE = 0;
+    private static final int MAX_SYSTEM_PORT_VALUE = 65536;
+    private final IPv4Address address;
     private final int configPort;
-    private final File configRootDirectory;
+    private final File rootDirectory;
+    private final int threadPoolSize;
+    private final File supportedMimeTypesConfigurationFile;
+    private final HTTPMimeTypes mimeTypes;
+    private String configFileStringRepresentation;
 
-    public HTTPServerConf(IPv4Address address, int port, File root_dir) throws HTTPServerUtils.InvalidPortException, IOException {
+    public HTTPServerConf(IPv4Address address, int port, File rootDir, int poolSize,
+                          File supportedMimeTypesConfigurationFile) throws IOException {
         validatePort(port);
-        validatePath(root_dir);
+        validatePath(rootDir);
 
-        this.configAddress = address;
+        this.address = address;
         this.configPort = port;
-        this.configRootDirectory = root_dir;
+        this.rootDirectory = rootDir;
+        this.threadPoolSize = poolSize;
+        this.mimeTypes = ConfigSerializer.getMimeTypes(supportedMimeTypesConfigurationFile);
+        this.supportedMimeTypesConfigurationFile = supportedMimeTypesConfigurationFile;
     }
 
-    String getAddress() {
-        return configAddress.getIpString();
+    static void validatePort(int port) throws InvalidPortException {
+        if ( port < MIN_SYSTEM_PORT_VALUE || port > MAX_SYSTEM_PORT_VALUE ) {
+            throw new InvalidPortException(String.format("%d is invalid port. Value between %d and %d is expected",
+                    port, MIN_SYSTEM_PORT_VALUE, MAX_SYSTEM_PORT_VALUE));
+        }
     }
 
-    int getPort() {
+    public String getAddress() {
+        return address.getIpString();
+    }
+
+    public int getPort() {
         return configPort;
     }
 
-    File getRootDirectory() {
-        return configRootDirectory;
+    public int getPoolSize() {
+        return threadPoolSize;
+    }
+
+    public File getConfigMimeTypes() {
+        return supportedMimeTypesConfigurationFile;
+    }
+
+    @Override
+    public File getRootDirectory() {
+        return rootDirectory;
+    }
+
+    @Override
+    public String getConfigHost() {
+        return null;
+    }
+
+    @Override
+    public HTTPMimeTypes getMimeTypes() {
+        return mimeTypes;
+    }
+
+    public String HTTPServerConfToString() {
+        return "Configuration file:\n" +
+                "\taddress " + getAddress() + "\n" +
+                "\tport " + getPort() + "\n" +
+                "\troot_dir " + getRootDirectory() + "\n" +
+                "\tpool_size " + getPoolSize() + "\n" +
+                "\tmime_types " + getConfigMimeTypes();
     }
 
     @Override
     public String toString() {
-        return "Configuration file:\n" +
-                "address " + getAddress() + "\n" +
-                "port " + getPort() + "\n" +
-                "root_dir " + getRootDirectory() + "\n\n";
+        return configFileStringRepresentation == null ? configFileStringRepresentation = HTTPServerConfToString() :
+                configFileStringRepresentation;
     }
 }

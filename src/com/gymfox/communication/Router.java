@@ -1,7 +1,6 @@
 package com.gymfox.communication;
 
 import java.util.Comparator;
-import java.util.Optional;
 import java.util.TreeSet;
 
 public class Router {
@@ -21,8 +20,8 @@ public class Router {
         routes.add(route);
     }
 
-    public Optional<Route> getRouteForAddress(IPv4Address address) {
-        return routes.stream().filter(route -> route.getNetworkAddress().contains(address)).findFirst();
+    public Route getRouteForAddress(IPv4Address address) {
+        return routes.stream().filter(route -> route.getNetworkAddress().contains(address)).findFirst().get();
     }
 
     public TreeSet<Route> getRoutes() {
